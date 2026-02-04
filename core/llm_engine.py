@@ -1,58 +1,73 @@
-import os
-import json
-import re
+import streamlit as st
 from groq import Groq
-from dotenv import load_dotenv
-from utils.prompts import EN_PROMPT, HI_PROMPT
 
-load_dotenv()
+MODEL_NAME = "llama3-70b-8192"
 
-client = Groq(api_key=os.getenv("GROQ_API_KEY"))
-
-def safe_json_parse(text):
-    """
-    Extract JSON object safely from LLM response
-    """
-    try:
-        # Try direct parse
-        return json.loads(text)
-    except:
-        # Try extracting JSON using regex
-        match = re.search(r"\{.*\}", text, re.DOTALL)
-        if match:
-            try:
-                return json.loads(match.group())
-            except:
-                pass
-
-    # Fallback (never crash app)
-    return {
-        "ownership": "unclear",
-        "exclusivity": "unclear",
-        "favor": "unclear",
-        "risk_reason": "LLM response could not be parsed reliably.",
-        "suggested_fix": "Manual legal review recommended."
-    }
-
+def get_groq_client():
+    api_key = st.secrets.get("GROQ_API_KEY")
+    if not api_key:
+        return None
+    return Groq(api_key=api_key)
 
 def analyze_clause_with_llm(clause, lang):
-    prompt = HI_PROMPT if lang == "Hindi" else EN_PROMPT
-    prompt = prompt.format(clause=clause)
+
+    client = get_groq_client()
+
+    if client is None:
+        return {
+            "ownership": "Unknown",
+            "exclusivity": "Unknown",
+            "risk_reason": "LLM unavailable. Groq API key not configured.",
+            "suggested_fix": "Configure GROQ_API_KEY in Streamlit secrets."
+        }
+
+    prompt = f"""
+    Analyze the following contract clause.
+
+    Language: {lang}
+
+    Clause:
+    {clause}
+
+    Respond strictly in this format:
+    Ownership: <Company / Vendor / Shared / Unclear>
+    Exclusivity: <Yes / No / Unclear>
+    RiskReason: <Short explanation>
+    SuggestedFix: <SME friendly alternative>
+    """
 
     response = client.chat.completions.create(
-        model="llama-3.3-70b-versatile",
-        messages=[
-            {
-                "role": "system",
-                "content": "You are a legal assistant. Respond ONLY with valid JSON. No explanations."
-            },
-            {
-                "role": "user",
-                "content": prompt
-            }
-        ],
+        model=MODEL_NAME,
+        messages=[{"role": "user", "content": prompt}],
         temperature=0
     )
 
-    raw_text = response.choices[0].message.content.strip()
-    return safe_json_parse(raw_text)
+    text = response.choices[0].message.content
+
+    return parse_llm_response(text)
+
+def parse_llm_response(text):
+
+    result = {
+        "ownership": "Unclear",
+        "exclusivity": "Unclear",
+        "risk_reason": "",
+        "suggested_fix": ""
+    }
+
+    for line in text.splitlines():
+        line = line.strip()
+
+        if line.lower().startswith("ownership"):
+            result["ownership"] = line.split(":", 1)[1].strip()
+
+        elif line.lower().startswith("exclusivity"):
+            result["exclusivity"] = line.split(":", 1)[1].strip()
+
+        elif line.lower().startswith("riskreason"):
+            result["risk_reason"] = line.split(":", 1)[1].strip()
+
+        elif line.lower().startswith("suggestedfix"):
+            result["suggested_fix"] = line.split(":", 1)[1].strip()
+
+    return result
