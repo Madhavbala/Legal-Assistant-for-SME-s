@@ -1,46 +1,50 @@
 from io import BytesIO
-from reportlab.lib.pagesizes import A4
-from reportlab.pdfgen import canvas
+from fpdf import FPDF
 
-def generate_pdf_bytes(results: list):
-    buffer = BytesIO()
-    c = canvas.Canvas(buffer, pagesize=A4)
-    width, height = A4
-    y = height - 50
+def generate_pdf_bytes(results):
+    pdf = FPDF()
+    pdf.set_auto_page_break(auto=True, margin=15)
+    pdf.add_page()
+    pdf.set_font("Arial", 'B', 16)
+    pdf.cell(0, 10, "IP Risk Analysis Report", ln=True, align="C")
+    pdf.ln(10)
+    pdf.set_font("Arial", '', 12)
 
-    for i, res in enumerate(results, 1):
-        c.setFont("Helvetica-Bold", 12)
-        c.drawString(50, y, f"Clause {i}")
-        y -= 20
-        c.setFont("Helvetica", 10)
-        c.drawString(60, y, res["clause"])
-        y -= 20
+    for idx, res in enumerate(results, 1):
+        clause = res["clause"]
+        analysis = res["analysis"]
+        pdf.set_font("Arial", 'B', 12)
+        pdf.multi_cell(0, 8, f"Clause {idx}")
+        pdf.set_font("Arial", '', 12)
+        pdf.multi_cell(0, 8, clause)
+        pdf.ln(2)
 
-        c.drawString(60, y, f"Ownership: {res['analysis']['ownership']}")
-        y -= 15
-        c.drawString(60, y, f"Exclusivity: {res['analysis']['exclusivity']}")
-        y -= 15
-        c.drawString(60, y, f"Risk: {res['risk']} | Score: {res['score']}/100")
-        y -= 15
-
+        # Friendly output
         try:
-            reason_data = json.loads(res["analysis"]["risk_reason"])
-            c.drawString(60, y, "Reason:")
-            y -= 15
-            c.drawString(70, y, reason_data.get("RiskExplanation", ""))
-            y -= 20
-            c.drawString(60, y, "Suggested Alternative:")
-            y -= 15
-            c.drawString(70, y, reason_data.get("SaferAlternative", ""))
-            y -= 30
-        except:
-            c.drawString(60, y, "Reason: " + res["analysis"]["risk_reason"])
-            y -= 30
+            reason_data = json.loads(analysis.get("risk_reason", "{}"))
+            explanation = reason_data.get("RiskExplanation", "")
+            suggestion = reason_data.get("SaferAlternative", analysis.get("suggested_fix", ""))
+        except Exception:
+            explanation = analysis.get("risk_reason", "")
+            suggestion = analysis.get("suggested_fix", "")
 
-        if y < 100:
-            c.showPage()
-            y = height - 50
+        pdf.set_font("Arial", 'B', 12)
+        pdf.multi_cell(0, 8, "Reason / Explanation:")
+        pdf.set_font("Arial", '', 12)
+        pdf.multi_cell(0, 8, explanation)
+        pdf.ln(1)
 
-    c.save()
-    buffer.seek(0)
-    return buffer.read()
+        pdf.set_font("Arial", 'B', 12)
+        pdf.multi_cell(0, 8, "Safer Alternative / Suggestion:")
+        pdf.set_font("Arial", '', 12)
+        pdf.multi_cell(0, 8, suggestion)
+        pdf.ln(2)
+
+        pdf.set_font("Arial", 'B', 12)
+        pdf.multi_cell(0, 8, f"Risk Score: {res.get('score', 0)}/100")
+        pdf.ln(5)
+
+    pdf_bytes = BytesIO()
+    pdf.output(pdf_bytes)
+    pdf_bytes.seek(0)
+    return pdf_bytes.getvalue()
