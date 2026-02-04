@@ -33,7 +33,7 @@ Instructions:
 
     try:
         response = client.chat.completions.create(
-                   model="gpt-4o-mini",
+                   model="openai/gpt-oss-120b",
                    messages=[{"role": "user", "content": prompt}],
                    temperature=0.2
 )
