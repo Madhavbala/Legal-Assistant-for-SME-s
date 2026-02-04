@@ -1,0 +1,1 @@
+# Legal-Assistant-for-SME-s
