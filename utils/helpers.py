@@ -1,39 +1,46 @@
 from io import BytesIO
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
-from reportlab.lib.styles import getSampleStyleSheet
-from reportlab.pdfbase import pdfmetrics
-from reportlab.pdfbase.ttfonts import TTFont
-import os
+from reportlab.lib.pagesizes import A4
+from reportlab.pdfgen import canvas
 
-font_path = os.path.join(os.path.dirname(__file__), "NotoSans-Regular.ttf")
-if not os.path.exists(font_path):
-    import requests
-    url = "https://github.com/googlefonts/noto-fonts/blob/main/hinted/ttf/NotoSans/NotoSans-Regular.ttf?raw=true"
-    r = requests.get(url)
-    with open(font_path, "wb") as f:
-        f.write(r.content)
-
-pdfmetrics.registerFont(TTFont("NotoSans", font_path))
-
-def generate_pdf_bytes(results: list) -> bytes:
+def generate_pdf_bytes(results: list):
     buffer = BytesIO()
-    doc = SimpleDocTemplate(buffer)
-    styles = getSampleStyleSheet()
-    styles["Normal"].fontName = "NotoSans"
-    story = []
+    c = canvas.Canvas(buffer, pagesize=A4)
+    width, height = A4
+    y = height - 50
 
     for i, res in enumerate(results, 1):
-        story.append(Paragraph(f"Clause {i}: {res['clause']}", styles["Normal"]))
-        story.append(Paragraph(f"Language: {res.get('language', 'Unknown')}", styles["Normal"]))
-        story.append(Paragraph(f"Ownership: {res.get('ownership', 'Unknown')}", styles["Normal"]))
-        story.append(Paragraph(f"Exclusivity: {res.get('exclusivity', 'Unknown')}", styles["Normal"]))
-        story.append(Paragraph(f"Risk Level: {res.get('risk', 'Unknown')}", styles["Normal"]))
-        story.append(Paragraph(f"Risk Score: {res.get('score', 'Unknown')}/100", styles["Normal"]))
-        story.append(Paragraph(f"Reason: {res.get('reason','')}", styles["Normal"]))
-        story.append(Paragraph(f"Suggested Fix: {res.get('suggestion','')}", styles["Normal"]))
-        story.append(Spacer(1, 12))
+        c.setFont("Helvetica-Bold", 12)
+        c.drawString(50, y, f"Clause {i}")
+        y -= 20
+        c.setFont("Helvetica", 10)
+        c.drawString(60, y, res["clause"])
+        y -= 20
 
-    doc.build(story)
-    pdf = buffer.getvalue()
-    buffer.close()
-    return pdf
+        c.drawString(60, y, f"Ownership: {res['analysis']['ownership']}")
+        y -= 15
+        c.drawString(60, y, f"Exclusivity: {res['analysis']['exclusivity']}")
+        y -= 15
+        c.drawString(60, y, f"Risk: {res['risk']} | Score: {res['score']}/100")
+        y -= 15
+
+        try:
+            reason_data = json.loads(res["analysis"]["risk_reason"])
+            c.drawString(60, y, "Reason:")
+            y -= 15
+            c.drawString(70, y, reason_data.get("RiskExplanation", ""))
+            y -= 20
+            c.drawString(60, y, "Suggested Alternative:")
+            y -= 15
+            c.drawString(70, y, reason_data.get("SaferAlternative", ""))
+            y -= 30
+        except:
+            c.drawString(60, y, "Reason: " + res["analysis"]["risk_reason"])
+            y -= 30
+
+        if y < 100:
+            c.showPage()
+            y = height - 50
+
+    c.save()
+    buffer.seek(0)
+    return buffer.read()
