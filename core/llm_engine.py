@@ -10,16 +10,17 @@ def analyze_clause_with_llm(clause: str, lang: str) -> dict:
     client = Groq(api_key=api_key)
 
     prompt = f"""
-Analyze the following clause and respond in simple English.
+Analyze the following clause and respond in JSON.
 
 Clause:
 {clause}
 
-Return:
-- ownership (Client / Shared / Service Provider / Unclear)
-- exclusivity (Exclusive / Non-exclusive)
-- risk_reason
-- suggested_fix
+Instructions:
+- Provide ownership (Client / Shared / Service Provider / Unclear)
+- Provide exclusivity (Exclusive / Non-exclusive)
+- Explain why it is risky
+- Suggest a safer alternative
+- Respond in English even if input is Hindi
 """
 
     response = client.chat.completions.create(
@@ -28,7 +29,7 @@ Return:
         temperature=0.2
     )
 
-    content = response.choices[0].message.content.lower()
+    content = response.choices[0].message.content
 
     rule_result = infer_ip_meaning(clause)
 
