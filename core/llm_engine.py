@@ -2,6 +2,8 @@ import streamlit as st
 from groq import Groq
 from core.ip_rules import infer_ip_meaning
 
+MODEL_NAME = "llama3-13b"  # Replace with your accessible Groq model
+
 def analyze_clause_with_llm(clause: str, lang: str) -> dict:
     clause = clause.strip()
     if not clause or len(clause) < 5:
@@ -33,10 +35,10 @@ Instructions:
 
     try:
         response = client.chat.completions.create(
-                   model="openai/gpt-oss-120b",
-                   messages=[{"role": "user", "content": prompt}],
-                   temperature=0.2
-)
+            model=MODEL_NAME,
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.2
+        )
         content = response.choices[0].message.content
     except Exception as e:
         content = f"Error in LLM analysis: {str(e)}"
