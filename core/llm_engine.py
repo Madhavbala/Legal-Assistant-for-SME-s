@@ -2,7 +2,7 @@ import streamlit as st
 from groq import Groq
 from core.ip_rules import infer_ip_meaning
 
-MODEL_NAME = "llama3-13b"  # Replace with your accessible Groq model
+MODEL_NAME = "openai/gpt-oss-120b"  
 
 def analyze_clause_with_llm(clause: str, lang: str) -> dict:
     clause = clause.strip()
