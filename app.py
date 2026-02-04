@@ -83,7 +83,7 @@ def analyze_ip_clause(clause: str) -> Dict:
 # ===============================
 # UI
 # ===============================
-st.title("📜 SME Legal IP Risk Assistant")
+st.title("Legal IP Risk Assistant")
 
 contract_text = st.text_area(
     "Paste contract clause(s) here",
