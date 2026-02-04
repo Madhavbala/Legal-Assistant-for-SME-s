@@ -1,20 +1,28 @@
 # core/ip_rules.py
 
-def is_ip_clause(clause: str) -> bool:
+def infer_ip_meaning(clause: str) -> dict:
+    """
+    Analyze clause and return ownership and exclusivity info.
+    Always returns a dictionary with keys: ownership, exclusivity
+    """
     clause_lower = clause.lower()
-    keywords = [
-        "intellectual property", "ownership", "exclusive", "assign",
-        "no rights to reuse", "no rights to modify", "license",
-        "patent", "copyright"
-    ]
-    return any(k in clause_lower for k in keywords)
+    
+    ownership = "Unknown"
+    exclusivity = "Unknown"
+    
+    if "client" in clause_lower:
+        ownership = "Client"
+    elif "provider" in clause_lower or "service provider" in clause_lower:
+        ownership = "Service Provider"
 
-# If llm_engine.py calls infer_ip_meaning, define it like this:
-def infer_ip_meaning(clause: str) -> str:
-    """
-    Dummy placeholder: returns a short description of IP meaning in clause.
-    You can enhance with actual NLP/LLM later.
-    """
-    if "intellectual property" in clause.lower():
-        return "This clause involves intellectual property ownership."
-    return "No IP meaning detected."
+    if "exclusive" in clause_lower:
+        exclusivity = "Exclusive"
+    elif "non-exclusive" in clause_lower:
+        exclusivity = "Non-Exclusive"
+
+    return {
+        "ownership": ownership,
+        "exclusivity": exclusivity,
+        "risk_reason": "",
+        "suggested_fix": ""
+    }
