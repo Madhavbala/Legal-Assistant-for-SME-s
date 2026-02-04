@@ -1,12 +1,10 @@
 from langdetect import detect
 
-def detect_language(text):
+def detect_language(text: str) -> str:
     try:
         lang = detect(text)
-        if lang == "en":
-            return "English"
-        if lang == "hi":
+        if lang.startswith("hi"):
             return "Hindi"
-        return "Unknown"
+        return "English"
     except:
         return "Unknown"
