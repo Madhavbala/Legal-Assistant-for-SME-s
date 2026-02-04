@@ -1,16 +1,17 @@
 import json
-import os
+from pathlib import Path
 
-AUDIT_FILE = os.path.join("data", "audit_logs.json")
-os.makedirs("data", exist_ok=True)
-if not os.path.exists(AUDIT_FILE):
-    with open(AUDIT_FILE, "w", encoding="utf-8") as f:
-        json.dump([], f, ensure_ascii=False, indent=2)
+AUDIT_FILE = Path("data/audit_logs.json")
+AUDIT_FILE.parent.mkdir(exist_ok=True)
 
-def log_audit(result: dict):
-    with open(AUDIT_FILE, "r+", encoding="utf-8") as f:
-        data = json.load(f)
-        data.append(result)
-        f.seek(0)
-        json.dump(data, f, ensure_ascii=False, indent=2)
-        f.truncate()
+def log_audit(results: list):
+    if AUDIT_FILE.exists():
+        try:
+            data = json.loads(AUDIT_FILE.read_text())
+        except:
+            data = []
+    else:
+        data = []
+
+    data.extend(results)
+    AUDIT_FILE.write_text(json.dumps(data, indent=2, ensure_ascii=False))
