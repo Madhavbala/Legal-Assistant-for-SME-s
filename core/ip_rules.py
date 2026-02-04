@@ -2,33 +2,17 @@ def is_ip_clause(text: str) -> bool:
     if not text:
         return False
 
-    text = text.lower()
-
     keywords = [
-        "intellectual property",
-        "ip",
-        "copyright",
-        "patent",
-        "trademark",
-        "license",
-        "ownership",
-        "assign",
-        "assignment",
-        "proprietary",
-        "source code",
-        "work product",
-        "बौद्धिक संपदा",
-        "कॉपीराइट",
-        "पेटेंट",
-        "स्वामित्व"
+        "intellectual property", "ip", "copyright", "patent", "trademark",
+        "license", "ownership", "assign", "assignment", "proprietary",
+        "source code", "work product",
+        "बौद्धिक संपदा", "कॉपीराइट", "पेटेंट", "स्वामित्व"
     ]
-
+    text = text.lower()
     return any(k in text for k in keywords)
-
 
 def infer_ip_meaning(text: str) -> dict:
     text = text.lower()
-
     ownership = "Unclear"
     exclusivity = "Non-exclusive"
 
