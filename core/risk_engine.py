@@ -5,11 +5,14 @@ def calculate_ip_risk(llm_result):
     ownership = llm_result.get("ownership", "Unclear")
     exclusivity = llm_result.get("exclusivity", "Unclear")
 
-    if ownership in ["Vendor", "Unclear"]:
+    if ownership == "Unclear":
+        score += 30
+
+    if ownership == "Company":
         score += 40
 
     if exclusivity == "Yes":
-        score += 40
+        score += 30
 
     if score >= 70:
         risk = "High"
