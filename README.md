@@ -1,203 +1,83 @@
 GenAI Legal Assistant for SMEs
 
-This application helps small and medium enterprises (SMEs) understand legal risks in contracts, with a focus on Intellectual Property (IP) clauses.
-It uses a combination of deterministic NLP rules and a GenAI model (Groq LLM) to analyze contract text and generate explanations.
+This app helps users understand legal risks in contract text, mainly Intellectual Property (IP) clauses.
+It uses rules + AI (Groq LLM) to explain risks in simple language.
 
-Key Features
-Core Capabilities
+What this app can do
 
-Contract text input (paste text or upload file)
+Accept contract text (paste or upload)
 
-Clause and sub-clause extraction
+Split contract into clauses
 
-Language detection (English and Hindi)
+Detect English or Hindi language
 
-IP clause detection using rule-based logic
+Identify IP-related clauses
 
-Clause-level risk analysis using Groq LLM
+Explain ownership and risk
 
-Ownership, exclusivity, and risk scoring
+Give SME-friendly suggestions
 
-Plain-language explanation of risks
+Generate a clean PDF report
 
-SME-friendly alternative suggestions
+Automatically save audit logs
 
-Automatic audit logging
+What this app cannot do
 
-PDF report generation (Unicode-safe, supports Hindi)
+It is not a lawyer
 
-What This App Is Designed For
+It does not give legal advice
 
-First-level legal risk screening
+It does not handle scanned PDFs
 
-Contract review assistance
+It does not guarantee legal accuracy
 
-SME contract understanding
+Supported inputs
 
-Hackathons, demos, internal tools
-
-Non-lawyer users who need explanations
-
-What This App Is NOT
-
-Not a replacement for a lawyer
-
-Not jurisdiction-specific legal advice
-
-Not suitable for court submission
-
-Does not include OCR for scanned PDFs
-
-Does not guarantee legal completeness
-
-These are optional advanced features and can be added later.
-
-Supported Input Formats
-
-Plain text (paste)
+Plain text
 
 Text-based PDF
 
-DOC / DOCX (text only)
+DOC / DOCX
 
-Note: Scanned PDFs are not supported unless OCR is added.
-
-Supported Languages
+Supported languages
 
 English
 
 Hindi
 
-Internal processing can normalize Hindi for analysis.
-PDF output supports Unicode, so Hindi text renders correctly.
+PDF output supports Hindi properly.
 
-Tech Stack
+Simple example
+Input clause
+All intellectual property created during the project
+shall belong exclusively to the Client.
 
-Python 3.10+
+Output
 
-Streamlit
+Ownership: Client
 
-Groq LLM API
+Risk level: High
 
-Rule-based NLP
+Explanation: You lose rights to your work
 
-ReportLab (PDF generation)
+Suggestion: Keep shared or retained ownership
 
-Project Structure
-legal_ai_app/
-│
-├── app.py
-├── requirements.txt
-├── core/
-│   ├── parser.py
-│   ├── language.py
-│   ├── clause_splitter.py
-│   ├── ip_rules.py
-│   ├── risk_engine.py
-│   ├── llm_engine.py
-│   └── audit.py
-│
-├── utils/
-│   └── helpers.py
-│
-└── data/
-    └── audit_logs.json
-
-Environment Setup (Local)
-
-Clone the repository
-
-Create a virtual environment
-
-Install dependencies
-
+How to run locally
 pip install -r requirements.txt
-
-
-Create a .env file (for local use only)
-
-GROQ_API_KEY=your_groq_api_key
-
-
-Run the app
-
 streamlit run app.py
 
-Streamlit Cloud Deployment (Important)
-Do NOT use .env on Streamlit Cloud
 
-Instead, add secrets in TOML format:
+Create .env file:
 
-GROQ_API_KEY = "gsk_your_actual_key_here"
+GROQ_API_KEY=your_groq_key
 
+Streamlit Cloud setup
 
-Path:
+Add this in Secrets (TOML):
 
-Manage app
+GROQ_API_KEY = "your_groq_key"
 
-Settings
+Important note
 
-Secrets
-
-The app reads the key using st.secrets.
-
-Audit Logging Behavior
-
-Audit log is updated automatically
-
-User does NOT need to click any save button
-
-Each analysis appends results to audit_logs.json
-
-Includes clause text, risk score, and explanation
-
-PDF Export
-
-Generates a clean, readable PDF
-
-Supports English and Hindi (Unicode)
-
-No external downloads required
-
-Uses in-memory generation for Streamlit Cloud
-
-Limitations
-
-No OCR for scanned documents
-
-Risk scoring is heuristic, not legal certainty
-
-Entity extraction is basic (extendable)
-
-Depends on Groq API availability
-
-Future Enhancements (Optional)
-
-OCR support for scanned PDFs
-
-Jurisdiction-specific rules
-
-Clause similarity matching
-
-Full NER (parties, amounts, dates)
-
-Contract-level composite risk score
-
-Standard contract templates
-
-Disclaimer
-
-This tool provides informational analysis only.
-It does not constitute legal advice.
-
-Always consult a qualified legal professional for final decisions.
-
-If you want, I can also:
-
-tailor this README for GitHub
-
-simplify it further
-
-add screenshots section
-
-add architecture diagram explanation
+This app is for contract understanding and risk screening only.
+Always consult a legal professional for final decisions.
