@@ -1,10 +1,6 @@
-from langdetect import detect
-
 def detect_language(text: str) -> str:
-    try:
-        lang = detect(text)
-        if lang.startswith("hi"):
+    # Simple heuristic: Hindi characters present?
+    for c in text:
+        if '\u0900' <= c <= '\u097F':
             return "Hindi"
-        return "English"
-    except:
-        return "Unknown"
+    return "English"
