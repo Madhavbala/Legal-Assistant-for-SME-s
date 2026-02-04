@@ -1,80 +1,124 @@
 import streamlit as st
+import re
+from typing import List, Dict
 
-from core.parser import get_input_text
-from core.language import detect_language
-from core.clause_splitter import split_clauses
-from core.ip_rules import is_ip_clause
-from core.llm_engine import analyze_clause_with_llm
-from core.risk_engine import calculate_ip_risk
-from core.audit import log_audit
-from utils.helpers import export_pdf
+# ===============================
+# CONFIG
+# ===============================
+st.set_page_config(page_title="SME Legal IP Risk Assistant", layout="wide")
 
-st.set_page_config(page_title="Legal Assistant", layout="wide")
+# ===============================
+# SIMPLE LANGUAGE DETECTION
+# ===============================
+def detect_language(text: str) -> str:
+    if re.search(r'[\u0900-\u097F]', text):
+        return "Hindi"
+    return "English"
 
-st.title("GenAI Legal Assistant")
+# ===============================
+# CLAUSE SPLITTER
+# ===============================
+def split_clauses(text: str) -> List[str]:
+    clauses = re.split(r'\n+|(?<=\.)\s+', text)
+    return [c.strip() for c in clauses if len(c.strip()) > 10]
 
-mode = st.radio(
-    "Input method",
-    ["Paste IP Clause", "Upload Contract File"],
-    horizontal=True
+# ===============================
+# IP CLAUSE DETECTION (RULE BASED)
+# ===============================
+def is_ip_clause(text: str) -> bool:
+    keywords = [
+        "intellectual property",
+        "ip rights",
+        "ownership",
+        "work made for hire",
+        "shall vest",
+        "exclusive rights",
+        "copyright",
+        "patent",
+        "trademark"
+    ]
+    text_lower = text.lower()
+    return any(k in text_lower for k in keywords)
+
+# ===============================
+# IP RISK ANALYSIS (NO LLM)
+# ===============================
+def analyze_ip_clause(clause: str) -> Dict:
+    text = clause.lower()
+
+    ownership = "Unclear"
+    exclusivity = "Unclear"
+    risk = "Low"
+    score = 20
+    reason = []
+    fix = []
+
+    if "shall vest" in text or "exclusive" in text:
+        ownership = "Company"
+        exclusivity = "Exclusive"
+        risk = "High"
+        score = 75
+        reason.append("Clause assigns all IP exclusively to the company.")
+        fix.append("Limit IP ownership to work created specifically for this engagement.")
+
+    if "all intellectual property" in text:
+        risk = "High"
+        score = max(score, 80)
+        reason.append("Scope of IP is overly broad.")
+        fix.append("Define IP scope clearly (background IP vs project IP).")
+
+    if ownership == "Unclear":
+        reason.append("IP ownership is not clearly defined.")
+        fix.append("Explicitly state who owns newly created IP.")
+
+    return {
+        "ownership": ownership,
+        "exclusivity": exclusivity,
+        "risk": risk,
+        "score": score,
+        "reason": " ".join(reason),
+        "fix": " ".join(fix)
+    }
+
+# ===============================
+# UI
+# ===============================
+st.title("📜 SME Legal IP Risk Assistant")
+
+contract_text = st.text_area(
+    "Paste contract clause(s) here",
+    height=200,
+    placeholder="Paste legal text here..."
 )
 
-raw_text = get_input_text(mode)
-
-if st.button("Analyze Contract", use_container_width=True):
-
-    if not raw_text or len(raw_text.strip()) < 10:
-        st.error("Please provide valid contract text")
+if st.button("Analyze"):
+    if not contract_text.strip():
+        st.warning("Please enter contract text.")
         st.stop()
 
-    lang = detect_language(raw_text)
-    st.write("Detected language:", lang)
+    language = detect_language(contract_text)
+    clauses = split_clauses(contract_text)
 
-    clauses = split_clauses(raw_text)
-    st.write("Total clauses detected:", len(clauses))
+    st.markdown(f"**Detected language:** {language}")
+    st.markdown(f"**Total clauses detected:** {len(clauses)}")
 
-    results = []
-
-    for idx, clause in enumerate(clauses, 1):
-
-        st.subheader(f"Clause {idx}")
+    for i, clause in enumerate(clauses, start=1):
+        st.markdown("---")
+        st.subheader(f"Clause {i}")
         st.write(clause)
 
         if is_ip_clause(clause):
+            result = analyze_ip_clause(clause)
 
-            llm_result = analyze_clause_with_llm(clause, lang)
-            risk, score = calculate_ip_risk(llm_result)
+            st.markdown(f"**Ownership:** {result['ownership']}")
+            st.markdown(f"**Exclusivity:** {result['exclusivity']}")
+            st.markdown(f"**Risk level:** {result['risk']}")
+            st.markdown(f"**Risk score:** {result['score']}")
 
-            st.write("Ownership:", llm_result["ownership"])
-            st.write("Exclusivity:", llm_result["exclusivity"])
-            st.write("Risk level:", risk)
-            st.write("Risk score:", score)
-            st.write("Reason:", llm_result["risk_reason"])
-            st.write("Suggested fix:", llm_result["suggested_fix"])
+            st.markdown("**Reason:**")
+            st.write(result["reason"])
 
-            record = {
-                "clause": clause,
-                "analysis": llm_result,
-                "risk": risk,
-                "score": score
-            }
-
-            results.append(record)
-            log_audit(record)
-
+            st.markdown("**Suggested fix:**")
+            st.write(result["fix"])
         else:
-            st.write("No IP-related risk found in this clause")
-
-        st.divider()
-
-    if results:
-        if st.button("Export PDF", use_container_width=True):
-            path = export_pdf(results)
-            with open(path, "rb") as f:
-                st.download_button(
-                    "Download PDF",
-                    f,
-                    file_name="ip_risk_report.pdf",
-                    mime="application/pdf",
-                    use_container_width=True
-                )
+            st.info("No intellectual property risk detected in this clause.")
