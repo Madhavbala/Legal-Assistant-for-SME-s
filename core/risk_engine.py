@@ -1,29 +1,36 @@
-def calculate_ip_risk(analysis: dict):
+def calculate_ip_risk(llm_result):
     """
-    Calculate risk level based on clause analysis.
-    Returns tuple: (RiskLevel, Score 0-100)
+    Calculate IP risk score and level consistently.
+    Score is 0–100, risk level is Low/Medium/High
     """
-    # Simple scoring logic based on keywords
     score = 0
-    clause_text = analysis.get("risk_reason", "").lower()
 
-    if "overly broad" in clause_text or "no definition" in clause_text:
-        score += 20
-    if "no carve-out" in clause_text:
-        score += 10
-    if "no license back" in clause_text:
-        score += 10
-    if "moral rights" in clause_text or "unenforceable" in clause_text:
-        score += 10
+    # Assign weights
+    ownership_weight = 50
+    exclusivity_weight = 30
+    favor_weight = 20
 
-    # Determine risk level
-    if score >= 40:
-        risk = "Medium"
-    elif score >= 20:
-        risk = "Low"
+    # Calculate score based on LLM results
+    ownership = llm_result.get("ownership", "").lower()
+    exclusivity = llm_result.get("exclusivity", "").lower()
+    favor = llm_result.get("favor", "").lower()
+
+    if ownership == "assigned":
+        score += ownership_weight
+    if exclusivity == "exclusive":
+        score += exclusivity_weight
+    if favor == "one-sided":
+        score += favor_weight
+
+    # Ensure score is 0–100
+    score = min(max(score, 0), 100)
+
+    # Determine risk level consistently
+    if score >= 60:
+        risk_level = "High"
+    elif score >= 30:
+        risk_level = "Medium"
     else:
-        risk = "High"
+        risk_level = "Low"
 
-    # Cap score at 100
-    score = min(score, 100)
-    return risk, score
+    return risk_level, score
