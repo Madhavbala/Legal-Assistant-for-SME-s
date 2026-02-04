@@ -1,7 +1,7 @@
 import streamlit as st
-from groq import Groq
+from groq import Groq, GroqError
 
-MODEL_NAME = "llama3-70b-8192"
+MODEL_NAME = "llama3-8b-8192"
 
 def get_groq_client():
     api_key = st.secrets.get("GROQ_API_KEY")
@@ -14,60 +14,67 @@ def analyze_clause_with_llm(clause, lang):
     client = get_groq_client()
 
     if client is None:
-        return {
-            "ownership": "Unknown",
-            "exclusivity": "Unknown",
-            "risk_reason": "LLM unavailable. Groq API key not configured.",
-            "suggested_fix": "Configure GROQ_API_KEY in Streamlit secrets."
-        }
+        return fallback_response("Groq API key not configured")
 
     prompt = f"""
-    Analyze the following contract clause.
+You are a legal contract analyst.
 
-    Language: {lang}
+Analyze the clause below.
 
-    Clause:
-    {clause}
+Return EXACTLY in this format:
 
-    Respond strictly in this format:
-    Ownership: <Company / Vendor / Shared / Unclear>
-    Exclusivity: <Yes / No / Unclear>
-    RiskReason: <Short explanation>
-    SuggestedFix: <SME friendly alternative>
-    """
+Ownership: Company | Vendor | Shared | Unclear
+Exclusivity: Yes | No | Unclear
+RiskReason: short explanation
+SuggestedFix: SME friendly alternative
 
-    response = client.chat.completions.create(
-        model=MODEL_NAME,
-        messages=[{"role": "user", "content": prompt}],
-        temperature=0
-    )
+Clause:
+{clause}
+"""
 
-    text = response.choices[0].message.content
+    try:
+        response = client.chat.completions.create(
+            model=MODEL_NAME,
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0
+        )
 
-    return parse_llm_response(text)
+        text = response.choices[0].message.content
+        return parse_llm_response(text)
+
+    except GroqError as e:
+        return fallback_response("LLM request failed")
 
 def parse_llm_response(text):
 
     result = {
         "ownership": "Unclear",
         "exclusivity": "Unclear",
-        "risk_reason": "",
-        "suggested_fix": ""
+        "risk_reason": "Not available",
+        "suggested_fix": "Not available"
     }
 
     for line in text.splitlines():
         line = line.strip()
 
-        if line.lower().startswith("ownership"):
+        if line.startswith("Ownership:"):
             result["ownership"] = line.split(":", 1)[1].strip()
 
-        elif line.lower().startswith("exclusivity"):
+        elif line.startswith("Exclusivity:"):
             result["exclusivity"] = line.split(":", 1)[1].strip()
 
-        elif line.lower().startswith("riskreason"):
+        elif line.startswith("RiskReason:"):
             result["risk_reason"] = line.split(":", 1)[1].strip()
 
-        elif line.lower().startswith("suggestedfix"):
+        elif line.startswith("SuggestedFix:"):
             result["suggested_fix"] = line.split(":", 1)[1].strip()
 
     return result
+
+def fallback_response(reason):
+    return {
+        "ownership": "Unclear",
+        "exclusivity": "Unclear",
+        "risk_reason": reason,
+        "suggested_fix": "Unable to generate suggestion"
+    }
