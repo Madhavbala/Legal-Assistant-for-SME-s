@@ -1,49 +1,23 @@
-import streamlit as st
-import fitz  # PyMuPDF
-from docx import Document
+import os
+from PyPDF2 import PdfReader
+import docx
 
-def extract_text(file, file_type):
-    """
-    Extract text from uploaded file based on file type
-    """
-    if file_type == "pdf":
-        doc = fitz.open(stream=file.read(), filetype="pdf")
-        text = ""
-        for page in doc:
-            text += page.get_text()
-        return text
+def get_file_text(file_path: str) -> str:
+    ext = os.path.splitext(file_path)[1].lower()
+    text = ""
 
-    elif file_type == "docx":
-        document = Document(file)
-        return "\n".join([p.text for p in document.paragraphs])
+    if ext == ".pdf":
+        reader = PdfReader(file_path)
+        for page in reader.pages:
+            text += page.extract_text() + "\n"
 
-    elif file_type == "txt":
-        return file.read().decode("utf-8")
+    elif ext == ".docx":
+        doc = docx.Document(file_path)
+        for para in doc.paragraphs:
+            text += para.text + "\n"
 
-    else:
-        return ""
+    elif ext == ".txt":
+        with open(file_path, "r", encoding="utf-8") as f:
+            text = f.read()
 
-
-def get_input_text(mode):
-    """
-    Handles both paste mode and upload mode
-    """
-
-    if mode == "Paste IP Clause":
-        return st.text_area(
-            "Paste IP clause here",
-            height=200,
-            placeholder="Paste intellectual property clause here..."
-        )
-
-    # File upload mode
-    uploaded = st.file_uploader(
-        "Upload contract file",
-        type=["pdf", "docx", "txt"]
-    )
-
-    if uploaded:
-        file_type = uploaded.name.split(".")[-1].lower()
-        return extract_text(uploaded, file_type)
-
-    return None
+    return text.strip()
