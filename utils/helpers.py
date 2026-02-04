@@ -3,9 +3,12 @@ from io import BytesIO
 
 def generate_pdf_bytes(results):
     pdf = FPDF()
-    pdf.set_auto_page_break(auto=True, margin=15)
     pdf.add_page()
-    pdf.set_font("Arial", size=12)
+    pdf.set_auto_page_break(auto=True, margin=15)
+    
+    # Use Arial Unicode for Hindi text
+    pdf.add_font("ArialUnicode", "", "Arial.ttf", uni=True)
+    pdf.set_font("ArialUnicode", size=12)
 
     for i, res in enumerate(results, 1):
         pdf.multi_cell(0, 8, f"Clause {i}: {res['clause']}")
@@ -16,6 +19,7 @@ def generate_pdf_bytes(results):
         pdf.multi_cell(0, 8, f"Risk Level: {res['risk']}")
         pdf.multi_cell(0, 8, f"Reason: {analysis['risk_reason']}")
         pdf.multi_cell(0, 8, f"Safer Alternative: {analysis['suggested_fix']}")
+        pdf.multi_cell(0, 8, f"Risk Score: {res['score']}/100")
         pdf.ln(5)
 
     pdf_bytes = BytesIO()
