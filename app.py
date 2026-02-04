@@ -9,6 +9,7 @@ from core.audit import log_audit
 from utils.helpers import generate_pdf_bytes
 import json
 
+# ------------------ PAGE CONFIG ------------------
 st.set_page_config(page_title="Legal Assistant for SMEs", layout="wide")
 st.title("Legal Assistant for SMEs")
 
@@ -30,6 +31,7 @@ if analyze_clicked:
 
     results = []
 
+    # ------------------ CLAUSE ANALYSIS ------------------
     for i, clause in enumerate(clauses, 1):
         with st.container():
             st.markdown(f"### Clause {i}")
@@ -45,11 +47,12 @@ if analyze_clicked:
                 col2.metric("Exclusivity", llm_result["exclusivity"])
                 col3.metric("Risk Level", risk)
 
-                # JSON parsing for readable output
+                # ------------------ FRIENDLY OUTPUT ------------------
                 try:
                     reason_data = json.loads(llm_result["risk_reason"])
                 except Exception:
-                    reason_data = {"RiskExplanation": llm_result["risk_reason"]}
+                    reason_data = {"RiskExplanation": llm_result["risk_reason"],
+                                   "SaferAlternative": llm_result.get("suggested_fix", "")}
 
                 st.markdown("**Reason / Explanation:**")
                 st.write(reason_data.get("RiskExplanation", ""))
@@ -68,12 +71,21 @@ if analyze_clicked:
             else:
                 st.success("No IP-related risk found in this clause.")
 
-    # ------------------ EXPORT ------------------
+    # ------------------ EXPORT & AUDIT ------------------
     if results:
-        if st.button("Export PDF Report"):
-            pdf_bytes = generate_pdf_bytes(results)
-            st.download_button("Download PDF", pdf_bytes, file_name="ip_risk_report.pdf")
+        col1, col2 = st.columns(2)
 
-        # Audit log auto-update
-        log_audit(results)
-        st.success("Audit log updated.")
+        with col1:
+            if st.button("Export PDF Report"):
+                pdf_bytes = generate_pdf_bytes(results)
+                st.download_button(
+                    "Download PDF",
+                    pdf_bytes,
+                    file_name="ip_risk_report.pdf",
+                    mime="application/pdf"
+                )
+
+        with col2:
+            # Audit log auto-update
+            log_audit(results)
+            st.success("Audit log updated")
