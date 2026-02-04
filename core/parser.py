@@ -1,23 +1,33 @@
-import os
+import streamlit as st
+from io import StringIO
 from PyPDF2 import PdfReader
 import docx
 
-def get_file_text(file_path: str) -> str:
-    ext = os.path.splitext(file_path)[1].lower()
-    text = ""
+def get_input_text(mode):
+    if mode == "Paste IP Clause":
+        return st.text_area("Enter IP clause or contract text")
+    
+    uploaded_file = st.file_uploader("Upload contract file", type=["pdf", "docx", "txt"])
+    if uploaded_file is None:
+        return None
 
-    if ext == ".pdf":
-        reader = PdfReader(file_path)
+    # PDF
+    if uploaded_file.type == "application/pdf":
+        reader = PdfReader(uploaded_file)
+        text = ""
         for page in reader.pages:
             text += page.extract_text() + "\n"
+        return text
 
-    elif ext == ".docx":
-        doc = docx.Document(file_path)
-        for para in doc.paragraphs:
-            text += para.text + "\n"
+    # DOCX
+    if uploaded_file.type == "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
+        doc = docx.Document(uploaded_file)
+        text = "\n".join([para.text for para in doc.paragraphs])
+        return text
 
-    elif ext == ".txt":
-        with open(file_path, "r", encoding="utf-8") as f:
-            text = f.read()
+    # TXT
+    if uploaded_file.type == "text/plain":
+        stringio = StringIO(uploaded_file.getvalue().decode("utf-8"))
+        return stringio.read()
 
-    return text.strip()
+    return None
