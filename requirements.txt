@@ -5,4 +5,5 @@ spacy
 pymupdf
 python-docx
 langdetect
+reportlab
 fpdf
