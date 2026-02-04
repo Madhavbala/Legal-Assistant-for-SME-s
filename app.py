@@ -24,9 +24,11 @@ if analyze_clicked:
         st.error("Please provide valid IP clause or contract text.")
         st.stop()
 
+    # Language detection
     lang = detect_language(raw_text)
     st.info(f"Detected language: {lang}")
 
+    # Split into clauses
     clauses = split_clauses(raw_text)
     st.success(f"Total clauses detected: {len(clauses)}")
 
@@ -58,7 +60,7 @@ if analyze_clicked:
                     st.write(reason_text)
 
                 st.markdown("**Safer Alternative / Suggestion:**")
-                suggestion_text = llm_result.get("suggested_fix") or ""
+                suggestion_text = llm_result.get("suggested_fix", "")
                 try:
                     st.write(reason_data.get("SaferAlternative", suggestion_text))
                 except Exception:
