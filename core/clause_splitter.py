@@ -1,11 +1,7 @@
 import re
 
-def split_clauses(text):
-    text = text.replace("\n", " ").strip()
-
-    clauses = re.split(
-        r'(?<=[.;])\s+(?=[A-Z])',
-        text
-    )
-
-    return [c.strip() for c in clauses if len(c.strip()) > 20]
+def split_clauses(text: str) -> list:
+    # Split on ., ;, or Hindi danda (।)
+    clauses = re.split(r"[।.;]\s*", text)
+    # Remove empty strings
+    return [c.strip() for c in clauses if c.strip()]
