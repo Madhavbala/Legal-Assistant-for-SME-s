@@ -1,4 +1,5 @@
 import streamlit as st
+import json
 from core.parser import get_input_text
 from core.language import detect_language
 from core.clause_splitter import split_clauses
@@ -7,7 +8,6 @@ from core.llm_engine import analyze_clause_with_llm
 from core.risk_engine import calculate_ip_risk
 from core.audit import log_audit
 from utils.helpers import generate_pdf_bytes
-import json
 
 # ------------------ PAGE CONFIG ------------------
 st.set_page_config(page_title="Legal Assistant for SMEs", layout="wide")
@@ -26,6 +26,7 @@ if analyze_clicked:
 
     lang = detect_language(raw_text)
     st.info(f"Detected language: {lang}")
+
     clauses = split_clauses(raw_text)
     st.success(f"Total clauses detected: {len(clauses)}")
 
@@ -43,22 +44,25 @@ if analyze_clicked:
                 risk, score = calculate_ip_risk(llm_result)
 
                 col1, col2, col3 = st.columns(3)
-                col1.metric("Ownership", llm_result["ownership"])
-                col2.metric("Exclusivity", llm_result["exclusivity"])
+                col1.metric("Ownership", llm_result.get("ownership", "Unknown"))
+                col2.metric("Exclusivity", llm_result.get("exclusivity", "Unknown"))
                 col3.metric("Risk Level", risk)
 
                 # ------------------ FRIENDLY OUTPUT ------------------
-                try:
-                    reason_data = json.loads(llm_result["risk_reason"])
-                except Exception:
-                    reason_data = {"RiskExplanation": llm_result["risk_reason"],
-                                   "SaferAlternative": llm_result.get("suggested_fix", "")}
-
                 st.markdown("**Reason / Explanation:**")
-                st.write(reason_data.get("RiskExplanation", ""))
+                reason_text = llm_result.get("risk_reason", "")
+                try:
+                    reason_data = json.loads(reason_text)
+                    st.write(reason_data.get("RiskExplanation", reason_text))
+                except Exception:
+                    st.write(reason_text)
 
                 st.markdown("**Safer Alternative / Suggestion:**")
-                st.write(reason_data.get("SaferAlternative", llm_result.get("suggested_fix", "")))
+                suggestion_text = llm_result.get("suggested_fix") or ""
+                try:
+                    st.write(reason_data.get("SaferAlternative", suggestion_text))
+                except Exception:
+                    st.write(suggestion_text)
 
                 st.markdown(f"**Risk Score:** {score}/100")
 
@@ -86,6 +90,5 @@ if analyze_clicked:
                 )
 
         with col2:
-            # Audit log auto-update
             log_audit(results)
             st.success("Audit log updated")
