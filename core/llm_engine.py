@@ -1,20 +1,31 @@
-from core.ip_rules import infer_ip_meaning
-
 def analyze_clause_with_llm(clause, lang):
-    """
-    Simulated LLM analysis
-    Combines simple deterministic rules + explanation
-    """
-    rule_result = infer_ip_meaning(clause)
+    prompt = HI_PROMPT if lang == "Hindi" else EN_PROMPT
+    prompt = prompt.format(clause=clause)
+    try:
+        response = client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=[
+                {
+                    "role": "system",
+                    "content": "You are a legal assistant. Respond ONLY with valid JSON. No explanations."
+                },
+                {
+                    "role": "user",
+                    "content": prompt
+                }
+            ],
+            temperature=0
+        )
 
-    # Add more detailed explanation for user
-    risk_reason = (
-        f"{rule_result['risk_reason']} "
-        "Please review the clause carefully and adjust ownership/exclusivity terms."
-    )
-    suggested_fix = rule_result['suggested_fix']
+        raw_text = response.choices[0].message.content.strip()
+        return safe_json_parse(raw_text)
 
-    return {
-        "risk_reason": risk_reason,
-        "suggested_fix": suggested_fix
-    }
+    except Exception as e:
+        # Safe fallback if API fails
+        return {
+            "ownership": "unclear",
+            "exclusivity": "unclear",
+            "favor": "unclear",
+            "risk_reason": f"LLM error: {str(e)}",
+            "suggested_fix": "Manual legal review recommended."
+        }
