@@ -4,22 +4,19 @@ from groq import Groq, GroqError
 MODEL_NAME = "llama3-8b-8192"
 
 def get_groq_client():
-    api_key = st.secrets.get("GROQ_API_KEY")
-    if not api_key:
+    key = st.secrets.get("GROQ_API_KEY")
+    if not key:
         return None
-    return Groq(api_key=api_key)
+    return Groq(api_key=key)
 
 def analyze_clause_with_llm(clause, lang):
 
     client = get_groq_client()
-
     if client is None:
-        return fallback_response("Groq API key not configured")
+        return fallback()
 
     prompt = f"""
-You are a legal contract analyst.
-
-Analyze the clause below.
+Analyze the contract clause below.
 
 Return EXACTLY in this format:
 
@@ -39,13 +36,12 @@ Clause:
             temperature=0
         )
 
-        text = response.choices[0].message.content
-        return parse_llm_response(text)
+        return parse(response.choices[0].message.content)
 
-    except GroqError as e:
-        return fallback_response("LLM request failed")
+    except GroqError:
+        return fallback()
 
-def parse_llm_response(text):
+def parse(text):
 
     result = {
         "ownership": "Unclear",
@@ -55,26 +51,21 @@ def parse_llm_response(text):
     }
 
     for line in text.splitlines():
-        line = line.strip()
-
         if line.startswith("Ownership:"):
             result["ownership"] = line.split(":", 1)[1].strip()
-
         elif line.startswith("Exclusivity:"):
             result["exclusivity"] = line.split(":", 1)[1].strip()
-
         elif line.startswith("RiskReason:"):
             result["risk_reason"] = line.split(":", 1)[1].strip()
-
         elif line.startswith("SuggestedFix:"):
             result["suggested_fix"] = line.split(":", 1)[1].strip()
 
     return result
 
-def fallback_response(reason):
+def fallback():
     return {
         "ownership": "Unclear",
         "exclusivity": "Unclear",
-        "risk_reason": reason,
-        "suggested_fix": "Unable to generate suggestion"
+        "risk_reason": "LLM unavailable",
+        "suggested_fix": "Please review manually"
     }
