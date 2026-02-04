@@ -1,0 +1,8 @@
+streamlit
+python-dotenv
+groq
+spacy
+pymupdf
+python-docx
+langdetect
+fpdf
