@@ -1,6 +1,6 @@
 import streamlit as st
 from groq import Groq
-from core.ip_rules import infer_ip_meaning
+from core.ip_rules import infer_ip_meaning, is_ip_clause
 
 MODEL_NAME = "openai/gpt-oss-120b"  
 
