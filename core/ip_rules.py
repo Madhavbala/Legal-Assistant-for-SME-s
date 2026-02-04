@@ -8,3 +8,13 @@ def is_ip_clause(clause: str) -> bool:
         "patent", "copyright"
     ]
     return any(k in clause_lower for k in keywords)
+
+# If llm_engine.py calls infer_ip_meaning, define it like this:
+def infer_ip_meaning(clause: str) -> str:
+    """
+    Dummy placeholder: returns a short description of IP meaning in clause.
+    You can enhance with actual NLP/LLM later.
+    """
+    if "intellectual property" in clause.lower():
+        return "This clause involves intellectual property ownership."
+    return "No IP meaning detected."
