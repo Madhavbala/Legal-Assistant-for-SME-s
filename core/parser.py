@@ -1,33 +1,48 @@
 import streamlit as st
-from io import StringIO
-from PyPDF2 import PdfReader
-import docx
+import fitz  # PyMuPDF
+from docx import Document
+
+def extract_text(file, file_type):
+    """
+    Extract text from uploaded file based on file type
+    """
+    if file_type == "pdf":
+        doc = fitz.open(stream=file.read(), filetype="pdf")
+        text = ""
+        for page in doc:
+            text += page.get_text()
+        return text
+
+    elif file_type == "docx":
+        document = Document(file)
+        return "\n".join([p.text for p in document.paragraphs])
+
+    elif file_type == "txt":
+        return file.read().decode("utf-8")
+
+    else:
+        return ""
 
 def get_input_text(mode):
+    """
+    Handles both paste mode and upload mode
+    """
+
     if mode == "Paste IP Clause":
-        return st.text_area("Enter IP clause or contract text")
-    
-    uploaded_file = st.file_uploader("Upload contract file", type=["pdf", "docx", "txt"])
-    if uploaded_file is None:
-        return None
+        return st.text_area(
+            "Paste IP clause here",
+            height=200,
+            placeholder="Paste intellectual property clause here..."
+        )
 
-    # PDF
-    if uploaded_file.type == "application/pdf":
-        reader = PdfReader(uploaded_file)
-        text = ""
-        for page in reader.pages:
-            text += page.extract_text() + "\n"
-        return text
+    # File upload mode
+    uploaded = st.file_uploader(
+        "Upload contract file",
+        type=["pdf", "docx", "txt"]
+    )
 
-    # DOCX
-    if uploaded_file.type == "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
-        doc = docx.Document(uploaded_file)
-        text = "\n".join([para.text for para in doc.paragraphs])
-        return text
-
-    # TXT
-    if uploaded_file.type == "text/plain":
-        stringio = StringIO(uploaded_file.getvalue().decode("utf-8"))
-        return stringio.read()
+    if uploaded:
+        file_type = uploaded.name.split(".")[-1].lower()
+        return extract_text(uploaded, file_type)
 
     return None
