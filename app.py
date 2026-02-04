@@ -9,41 +9,35 @@ from core.risk_engine import calculate_ip_risk
 from core.audit import log_audit
 from utils.helpers import export_pdf
 
-st.set_page_config(
-    page_title="GenAI Legal Assistant for SMEs",
-    layout="wide"
-)
+st.set_page_config(page_title="Legal Assistant", layout="wide")
 
-st.title("GenAI Legal Assistant for SMEs")
-st.write("Contract IP risk analysis using rules and LLM")
+st.title("GenAI Legal Assistant")
 
 mode = st.radio(
-    "Choose input method",
+    "Input method",
     ["Paste IP Clause", "Upload Contract File"],
     horizontal=True
 )
 
 raw_text = get_input_text(mode)
 
-analyze_clicked = st.button("Analyze Contract", use_container_width=True)
-
-if analyze_clicked:
+if st.button("Analyze Contract", use_container_width=True):
 
     if not raw_text or len(raw_text.strip()) < 10:
-        st.error("Please provide valid contract text.")
+        st.error("Please provide valid contract text")
         st.stop()
 
     lang = detect_language(raw_text)
-    st.info(f"Detected language: {lang}")
+    st.write("Detected language:", lang)
 
     clauses = split_clauses(raw_text)
-    st.success(f"Total clauses detected: {len(clauses)}")
+    st.write("Total clauses detected:", len(clauses))
 
     results = []
 
-    for i, clause in enumerate(clauses, 1):
+    for idx, clause in enumerate(clauses, 1):
 
-        st.subheader(f"Clause {i}")
+        st.subheader(f"Clause {idx}")
         st.write(clause)
 
         if is_ip_clause(clause):
@@ -54,34 +48,32 @@ if analyze_clicked:
             st.write("Ownership:", llm_result["ownership"])
             st.write("Exclusivity:", llm_result["exclusivity"])
             st.write("Risk level:", risk)
+            st.write("Risk score:", score)
             st.write("Reason:", llm_result["risk_reason"])
             st.write("Suggested fix:", llm_result["suggested_fix"])
-            st.write("Risk score:", score)
 
-            result_entry = {
+            record = {
                 "clause": clause,
                 "analysis": llm_result,
                 "risk": risk,
                 "score": score
             }
 
-            results.append(result_entry)
-
-            log_audit(result_entry)
+            results.append(record)
+            log_audit(record)
 
         else:
-            st.write("No IP-related risk found in this clause.")
+            st.write("No IP-related risk found in this clause")
 
         st.divider()
 
     if results:
         if st.button("Export PDF", use_container_width=True):
-            pdf_path = export_pdf(results)
-
-            with open(pdf_path, "rb") as f:
+            path = export_pdf(results)
+            with open(path, "rb") as f:
                 st.download_button(
                     "Download PDF",
-                    data=f,
+                    f,
                     file_name="ip_risk_report.pdf",
                     mime="application/pdf",
                     use_container_width=True
