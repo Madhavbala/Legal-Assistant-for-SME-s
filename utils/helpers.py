@@ -3,13 +3,10 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
-from reportlab.rl_config import defaultPageSize
 import os
 
-# Register a Unicode font (supports Hindi)
 font_path = os.path.join(os.path.dirname(__file__), "NotoSans-Regular.ttf")
 if not os.path.exists(font_path):
-    # Download NotoSans if missing
     import requests
     url = "https://github.com/googlefonts/noto-fonts/blob/main/hinted/ttf/NotoSans/NotoSans-Regular.ttf?raw=true"
     r = requests.get(url)
