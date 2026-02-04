@@ -1,98 +1,79 @@
 import streamlit as st
-from core.parser import get_file_text
+from core.parser import get_input_text
 from core.language import detect_language
 from core.clause_splitter import split_clauses
-from core.ip_rules import is_ip_clause, infer_ip_meaning
+from core.ip_rules import is_ip_clause
 from core.llm_engine import analyze_clause_with_llm
 from core.risk_engine import calculate_ip_risk
 from core.audit import log_audit
 from utils.helpers import generate_pdf_bytes
-import tempfile
+import json
 
-# ------------------ PAGE ------------------
-st.set_page_config(page_title="GenAI Legal Assistant for SMEs", layout="wide")
-st.title("GenAI Legal Assistant for SMEs")
-st.write("Analyze contract text for Intellectual Property risks.")
+st.set_page_config(page_title="Legal Assistant for SMEs", layout="wide")
+st.title("Legal Assistant for SMEs")
 
 # ------------------ INPUT ------------------
-mode = st.radio("Choose input method", ["Paste Text", "Upload File"], horizontal=True)
+mode = st.radio("Choose input method", ["Paste IP Clause", "Upload Contract File"], horizontal=True)
+raw_text = get_input_text(mode)
+analyze_clicked = st.button("Analyze Contract")
 
-raw_text = ""
-if mode == "Paste Text":
-    raw_text = st.text_area("Paste contract text here", height=200)
-elif mode == "Upload File":
-    uploaded_file = st.file_uploader("Upload PDF, DOCX, or TXT", type=["pdf", "docx", "txt"])
-    if uploaded_file:
-        with tempfile.NamedTemporaryFile(delete=False) as tmp_file:
-            tmp_file.write(uploaded_file.getbuffer())
-            tmp_path = tmp_file.name
-        raw_text = get_file_text(tmp_path)
-
-analyze_clicked = st.button("Analyze Contract", use_container_width=True)
-
-# ------------------ ANALYSIS ------------------
+# ------------------ PROCESS ------------------
 if analyze_clicked:
     if not raw_text or len(raw_text.strip()) < 10:
-        st.error("Please provide valid contract text or upload a file.")
+        st.error("Please provide valid IP clause or contract text.")
         st.stop()
 
     lang = detect_language(raw_text)
     st.info(f"Detected language: {lang}")
-
     clauses = split_clauses(raw_text)
     st.success(f"Total clauses detected: {len(clauses)}")
 
     results = []
-    st.subheader("Analysis Results")
 
     for i, clause in enumerate(clauses, 1):
-        st.markdown(f"Clause {i}")
-        st.write(clause)
+        with st.container():
+            st.markdown(f"### Clause {i}")
+            st.write(clause)
 
-        if is_ip_clause(clause):
-            llm_result = analyze_clause_with_llm(clause, lang)
-            risk, score = calculate_ip_risk(llm_result)
+            if is_ip_clause(clause):
+                st.warning("Intellectual Property Risk Detected")
+                llm_result = analyze_clause_with_llm(clause, lang)
+                risk, score = calculate_ip_risk(llm_result)
 
-            col1, col2, col3 = st.columns(3)
-            col1.metric("Ownership", llm_result.get("ownership", "Unknown"))
-            col2.metric("Exclusivity", llm_result.get("exclusivity", "Unknown"))
-            col3.metric("Risk Level", risk)
+                col1, col2, col3 = st.columns(3)
+                col1.metric("Ownership", llm_result["ownership"])
+                col2.metric("Exclusivity", llm_result["exclusivity"])
+                col3.metric("Risk Level", risk)
 
-            st.write("Reason:")
-            st.write(llm_result.get("risk_reason", ""))
+                # JSON parsing for readable output
+                try:
+                    reason_data = json.loads(llm_result["risk_reason"])
+                except Exception:
+                    reason_data = {"RiskExplanation": llm_result["risk_reason"]}
 
-            st.write("Suggested Alternative:")
-            st.write(llm_result.get("suggested_fix", ""))
+                st.markdown("**Reason / Explanation:**")
+                st.write(reason_data.get("RiskExplanation", ""))
 
-            st.write(f"Risk Score: {score}/100")
+                st.markdown("**Safer Alternative / Suggestion:**")
+                st.write(reason_data.get("SaferAlternative", llm_result.get("suggested_fix", "")))
 
-            result = {
-                "clause": clause,
-                "language": lang,
-                "ownership": llm_result.get("ownership"),
-                "exclusivity": llm_result.get("exclusivity"),
-                "risk": risk,
-                "score": score,
-                "reason": llm_result.get("risk_reason"),
-                "suggestion": llm_result.get("suggested_fix"),
-            }
+                st.markdown(f"**Risk Score:** {score}/100")
 
-            results.append(result)
-            log_audit(result)
-        else:
-            st.write("No IP-related risk found in this clause.")
+                results.append({
+                    "clause": clause,
+                    "analysis": llm_result,
+                    "risk": risk,
+                    "score": score
+                })
+            else:
+                st.success("No IP-related risk found in this clause.")
 
-        st.divider()
-
-    # ------------------ PDF EXPORT ------------------
+    # ------------------ EXPORT ------------------
     if results:
-        pdf_bytes = generate_pdf_bytes(results)
-        st.download_button(
-            label="Download PDF Report",
-            data=pdf_bytes,
-            file_name="ip_risk_report.pdf",
-            mime="application/pdf",
-            use_container_width=True
-        )
-else:
-    st.info("Provide contract text or upload a file and click Analyze Contract.")
+        if st.button("Export PDF Report"):
+            pdf_bytes = generate_pdf_bytes(results)
+            st.download_button("Download PDF", pdf_bytes, file_name="ip_risk_report.pdf")
+
+        # Audit log auto-update
+        log_audit(results)
+        st.success("Audit log updated.")
