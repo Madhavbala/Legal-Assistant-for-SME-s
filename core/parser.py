@@ -1,39 +1,38 @@
-# core/parser.py
+import fitz  # PyMuPDF
+import docx
 
-import io
 
-def get_input_text(input_source):
+def get_input_text(uploaded_file, pasted_text):
     """
-    input_source:
-      - UploadedFile (Streamlit)
-      - str (pasted text)
+    Extract text from uploaded file OR pasted text.
+    Supports PDF, DOC/DOCX, TXT.
     """
 
-    # Case 1: pasted text
-    if isinstance(input_source, str):
-        return input_source.strip()
+    # 1️⃣ If pasted text is provided
+    if pasted_text and pasted_text.strip():
+        return pasted_text.strip()
 
-    # Case 2: uploaded file
-    if input_source is not None:
-        filename = input_source.name.lower()
+    # 2️⃣ If no file uploaded
+    if uploaded_file is None:
+        return ""
 
-        if filename.endswith(".txt"):
-            return input_source.read().decode("utf-8")
+    file_name = uploaded_file.name.lower()
 
-        elif filename.endswith(".pdf"):
-            from pypdf import PdfReader
-            reader = PdfReader(input_source)
-            text = ""
-            for page in reader.pages:
-                text += page.extract_text() or ""
-            return text
+    # 3️⃣ PDF
+    if file_name.endswith(".pdf"):
+        text = ""
+        with fitz.open(stream=uploaded_file.read(), filetype="pdf") as doc:
+            for page in doc:
+                text += page.get_text()
+        return text.strip()
 
-        elif filename.endswith(".docx"):
-            from docx import Document
-            doc = Document(io.BytesIO(input_source.read()))
-            return "\n".join(p.text for p in doc.paragraphs)
+    # 4️⃣ DOC / DOCX
+    if file_name.endswith(".docx") or file_name.endswith(".doc"):
+        document = docx.Document(uploaded_file)
+        return "\n".join(p.text for p in document.paragraphs).strip()
 
-        else:
-            raise ValueError("Unsupported file type")
+    # 5️⃣ TXT
+    if file_name.endswith(".txt"):
+        return uploaded_file.read().decode("utf-8").strip()
 
     return ""
