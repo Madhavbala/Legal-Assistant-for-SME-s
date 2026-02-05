@@ -1,7 +1,7 @@
-streamlit
+streamlit==1.54.0
 groq
-reportlab
-PyMuPDF
 python-docx
+PyMuPDF
+reportlab
 langdetect
-spacy
+python-dotenv
