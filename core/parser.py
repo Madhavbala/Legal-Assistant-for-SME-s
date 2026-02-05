@@ -1,38 +1,35 @@
-import fitz  # PyMuPDF
+import fitz
 import docx
 
 
+def _clean(text: str) -> str:
+    return " ".join(text.replace("\n", " ").split())
+
+
+def read_pdf(file):
+    text = ""
+    pdf = fitz.open(stream=file.read(), filetype="pdf")
+    for page in pdf:
+        text += page.get_text()
+    return _clean(text)
+
+
+def read_docx(file):
+    doc = docx.Document(file)
+    return _clean(" ".join(p.text for p in doc.paragraphs))
+
+
+def read_txt(file):
+    return _clean(file.read().decode("utf-8", errors="ignore"))
+
+
 def get_input_text(uploaded_file, pasted_text):
-    """
-    Extract text from uploaded file OR pasted text.
-    Supports PDF, DOC/DOCX, TXT.
-    """
-
-    # 1️⃣ If pasted text is provided
-    if pasted_text and pasted_text.strip():
-        return pasted_text.strip()
-
-    # 2️⃣ If no file uploaded
-    if uploaded_file is None:
-        return ""
-
-    file_name = uploaded_file.name.lower()
-
-    # 3️⃣ PDF
-    if file_name.endswith(".pdf"):
-        text = ""
-        with fitz.open(stream=uploaded_file.read(), filetype="pdf") as doc:
-            for page in doc:
-                text += page.get_text()
-        return text.strip()
-
-    # 4️⃣ DOC / DOCX
-    if file_name.endswith(".docx") or file_name.endswith(".doc"):
-        document = docx.Document(uploaded_file)
-        return "\n".join(p.text for p in document.paragraphs).strip()
-
-    # 5️⃣ TXT
-    if file_name.endswith(".txt"):
-        return uploaded_file.read().decode("utf-8").strip()
-
-    return ""
+    if uploaded_file:
+        name = uploaded_file.name.lower()
+        if name.endswith(".pdf"):
+            return read_pdf(uploaded_file)
+        if name.endswith(".docx"):
+            return read_docx(uploaded_file)
+        if name.endswith(".txt"):
+            return read_txt(uploaded_file)
+    return pasted_text
