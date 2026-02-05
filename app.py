@@ -8,43 +8,60 @@ from core.clause_splitter import split_clauses
 from core.llm_engine import analyze_clause_with_llm, calculate_risk_score
 
 # ----------------------------
-# Page Config
+# Page config
 # ----------------------------
 st.set_page_config(page_title="Legal AI Assistant", layout="wide")
 st.title("📄 Legal Contract Risk Analyzer")
 
 # ----------------------------
-# Input Section
+# Input mode
 # ----------------------------
 mode = st.radio(
     "Choose input method",
-    ["Paste Text"],
+    ["Upload File", "Paste Text"],
     horizontal=True
 )
 
-pasted_text = st.text_area(
-    "Paste contract text here",
-    height=300
-)
+uploaded_file = None
+pasted_text = ""
+
+if mode == "Upload File":
+    uploaded_file = st.file_uploader(
+        "Upload contract file",
+        type=["pdf", "docx", "txt"]
+    )
+else:
+    pasted_text = st.text_area(
+        "Paste contract text here",
+        height=300
+    )
 
 analyze_clicked = st.button("Analyze Contract", use_container_width=True)
 
 # ----------------------------
 # Processing
 # ----------------------------
-if analyze_clicked and pasted_text.strip():
+if analyze_clicked:
 
-    raw_text = get_input_text(mode, pasted_text)
+    # Decide what to send to parser
+    input_source = uploaded_file if mode == "Upload File" else pasted_text
+
+    raw_text = get_input_text(input_source)
+
+    if not raw_text.strip():
+        st.error("No text found in the input.")
+        st.stop()
+
     language = detect_language(raw_text)
-
     st.info(f"Detected language: {language}")
 
     clauses = split_clauses(raw_text)
 
     results = []
     for clause in clauses:
-        result = analyze_clause_with_llm(clause, language)
-        results.append(result)
+        results.append(
+            analyze_clause_with_llm(clause, language)
+        )
 
     # ----------------------------
     # Risk Score
@@ -56,15 +73,12 @@ if analyze_clicked and pasted_text.strip():
     st.write(f"**Risk Score:** {risk_score} / 100")
 
     # ----------------------------
-    # Clause Results
+    # Clause Analysis
     # ----------------------------
     st.subheader("🧩 Clause Analysis")
 
-    for idx, r in enumerate(results, start=1):
-        with st.expander(f"Clause {idx} — Risk: {r['risk_level']}"):
+    for i, r in enumerate(results, 1):
+        with st.expander(f"Clause {i} — Risk: {r['risk_level']}"):
             st.write(r["clause"])
-            st.write("**Analysis:**")
+            st.write("**Analysis**")
             st.write(r["analysis"])
-
-else:
-    st.warning("Please paste contract text before clicking Analyze.")
