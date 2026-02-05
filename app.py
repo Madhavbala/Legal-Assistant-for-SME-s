@@ -50,7 +50,7 @@ if analyze_clicked:
     lang = detect_language(raw_text)
     st.info(f"Detected language: {lang}")
 
-    clauses = split_clauses(input_text)
+    clauses = split_clauses(raw_text)
     st.success(f"Total clauses detected: {len(clauses)}")
 
     results = []
