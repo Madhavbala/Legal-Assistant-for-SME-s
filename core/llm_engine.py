@@ -1,51 +1,56 @@
 # core/llm_engine.py
 
-def analyze_clause_with_llm(clause_text: str, language: str = "en") -> dict:
+import json
+
+# ----------------------------
+# Clause Analysis (LLM-safe)
+# ----------------------------
+def analyze_clause_with_llm(clause_text, language="English"):
     """
-    Lightweight rule + placeholder LLM analysis.
-    Returns a fixed schema to avoid KeyError.
+    Returns a structured dict (never raw JSON string)
     """
 
-    risk = "Low"
-    explanation = "No obvious legal risk detected."
+    # 🔹 Replace this with Groq call later
+    # For now, deterministic + safe structure
 
-    risky_keywords = [
-        "indemnify",
-        "liability",
-        "termination",
-        "penalty",
-        "breach",
-        "damages",
-        "irrevocable",
-        "exclusive"
-    ]
-
-    for word in risky_keywords:
-        if word.lower() in clause_text.lower():
-            risk = "High"
-            explanation = f"The clause contains the risky term '{word}'."
-            break
-
-    return {
+    result = {
         "clause": clause_text,
-        "risk_level": risk,
-        "analysis": explanation
+        "ownership": "assigned",
+        "exclusivity": "exclusive",
+        "favor": "one-sided",
+        "risk_reason": (
+            "The clause transfers ownership and rights primarily to one party "
+            "without clearly defining limitations or protections."
+        ),
+        "suggested_fix": (
+            "Add explicit limitations, retained rights, or indemnification clauses "
+            "to balance obligations between both parties."
+        ),
+        "risk_level": "High"
     }
 
+    return result
 
-def calculate_risk_score(results: list) -> int:
+
+# ----------------------------
+# Overall Risk Score
+# ----------------------------
+def calculate_risk_score(results):
     """
-    Simple numeric risk score (0–100)
+    Converts clause risk levels into a 0–100 score
     """
+
+    score_map = {
+        "Low": 20,
+        "Medium": 50,
+        "High": 80
+    }
 
     if not results:
         return 0
 
-    score = 0
+    total = 0
     for r in results:
-        if r["risk_level"] == "High":
-            score += 20
-        elif r["risk_level"] == "Medium":
-            score += 10
+        total += score_map.get(r.get("risk_level", "Medium"), 50)
 
-    return min(score, 100)
+    return round(total / len(results))
