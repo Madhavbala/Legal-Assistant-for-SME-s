@@ -1,27 +1,21 @@
+# core/parser.py
+
+import streamlit as st
 import fitz  # PyMuPDF
 import docx
-import re
-from langdetect import detect
 
 
 def clean_text(text: str) -> str:
-    """
-    Normalize extracted text:
-    - remove weird PDF symbols
-    - fix broken newlines
-    """
-    text = text.replace("\x0c", " ")
-    text = re.sub(r"[•·●▪]", " ", text)
-    text = re.sub(r"\s+", " ", text)
-    return text.strip()
+    text = text.replace("\n", " ").replace("\t", " ")
+    return " ".join(text.split())
 
 
 def read_pdf(file) -> str:
-    doc = fitz.open(stream=file.read(), filetype="pdf")
-    pages = []
-    for page in doc:
-        pages.append(page.get_text())
-    return clean_text(" ".join(pages))
+    text = ""
+    with fitz.open(stream=file.read(), filetype="pdf") as doc:
+        for page in doc:
+            text += page.get_text()
+    return clean_text(text)
 
 
 def read_docx(file) -> str:
@@ -31,38 +25,47 @@ def read_docx(file) -> str:
 
 
 def read_txt(file) -> str:
-    raw = file.read().decode("utf-8", errors="ignore")
-    return clean_text(raw)
+    text = file.read().decode("utf-8", errors="ignore")
+    return clean_text(text)
 
 
-def get_input_text(uploaded_file, pasted_text):
+def get_input_text(mode: str) -> str:
     """
-    Unified input handler
+    Handles BOTH file upload and pasted text.
+    Returns clean text or empty string.
     """
 
-    if pasted_text and pasted_text.strip():
-        text = pasted_text.strip()
-    elif uploaded_file:
-        name = uploaded_file.name.lower()
+    if mode == "Upload File":
+        uploaded_file = st.file_uploader(
+            "Upload contract file",
+            type=["pdf", "docx", "txt"]
+        )
 
-        if name.endswith(".pdf"):
-            text = read_pdf(uploaded_file)
+        if uploaded_file is None:
+            return ""
 
-        elif name.endswith(".docx") or name.endswith(".doc"):
-            text = read_docx(uploaded_file)
+        filename = uploaded_file.name.lower()
 
-        elif name.endswith(".txt"):
-            text = read_txt(uploaded_file)
+        try:
+            if filename.endswith(".pdf"):
+                return read_pdf(uploaded_file)
 
-        else:
-            raise ValueError("Unsupported file format")
+            elif filename.endswith(".docx"):
+                return read_docx(uploaded_file)
+
+            elif filename.endswith(".txt"):
+                return read_txt(uploaded_file)
+
+            else:
+                st.error("Unsupported file format")
+                return ""
+
+        except Exception as e:
+            st.error(f"File read error: {e}")
+            return ""
 
     else:
-        return None, None
-
-    try:
-        lang = "Hindi" if detect(text) == "hi" else "English"
-    except:
-        lang = "English"
-
-    return text, lang
+        return st.text_area(
+            "Or paste contract text here",
+            height=300
+        )
