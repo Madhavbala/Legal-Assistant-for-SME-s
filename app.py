@@ -7,6 +7,7 @@ from core.language import detect_language
 from core.clause_splitter import split_clauses
 from core.llm_engine import analyze_clause_with_llm
 from utils.helpers import export_pdf
+from core.llm_engine import analyze_clause_with_llm, calculate_risk_score
 
 st.set_page_config(page_title="Legal Contract Risk Analyzer", layout="wide")
 
