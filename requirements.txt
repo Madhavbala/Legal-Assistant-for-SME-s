@@ -4,3 +4,4 @@ reportlab
 PyMuPDF
 python-docx
 langdetect
+spacy
