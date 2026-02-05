@@ -1,33 +1,26 @@
 import streamlit as st
 
 from core.parser import get_input_text
-from core.language import detect_language
 from core.clause_splitter import split_clauses
+from core.ip_rules import is_ip_clause
 from core.llm_engine import analyze_clause_with_llm
 from core.risk_engine import calculate_ip_risk
 from core.audit import log_audit
-from utils.helpers import export_pdf  # Corrected import
+from utils.helpers import export_pdf
 
-# ------------------ PAGE CONFIG ------------------
+
+# ---------------- PAGE CONFIG ----------------
 st.set_page_config(
-    page_title="GenAI Legal Assistant for SMEs",
+    page_title="Legal Assistant for SMEs",
     layout="wide"
 )
 
-# ------------------ HEADER ------------------
-st.markdown(
-    """
-    <h1 style="text-align:center;">GenAI Legal Assistant for SMEs</h1>
-    <p style="text-align:center;color:gray;">
-    Intellectual Property risk analysis using AI and rules
-    </p>
-    <hr>
-    """,
-    unsafe_allow_html=True
-)
+st.title("Legal Assistant for SMEs")
+st.write("Analyze intellectual property risks in contracts")
 
-# ------------------ INPUT ------------------
-st.subheader("Contract Input")
+
+# ---------------- INPUT SECTION ----------------
+st.subheader("Input")
 
 mode = st.radio(
     "Choose input method",
@@ -35,121 +28,96 @@ mode = st.radio(
     horizontal=True
 )
 
-raw_text = get_input_text(mode)
+uploaded_file = None
+pasted_text = ""
+
+if mode == "Paste IP Clause":
+    pasted_text = st.text_area(
+        "Enter IP clause or contract text",
+        height=220
+    )
+else:
+    uploaded_file = st.file_uploader(
+        "Upload contract file",
+        type=["pdf", "docx", "doc", "txt"]
+    )
 
 analyze_clicked = st.button("Analyze Contract", use_container_width=True)
 
-# ------------------ PROCESS ------------------
+
+# ---------------- ANALYSIS ----------------
 if analyze_clicked:
 
+    raw_text, lang = get_input_text(uploaded_file, pasted_text)
+
     if not raw_text or len(raw_text.strip()) < 10:
-        st.error("Please provide valid contract text.")
+        st.error("Please provide valid contract text")
         st.stop()
 
-    # Language detection
-    lang = detect_language(raw_text)
     st.info(f"Detected language: {lang}")
 
     clauses = split_clauses(raw_text)
+
     st.success(f"Total clauses detected: {len(clauses)}")
 
     results = []
 
-    st.markdown("---")
-    st.subheader("Clause-wise Analysis")
+    st.subheader("Analysis Results")
 
-    # ------------------ ANALYSIS LOOP ------------------
-    for idx, clause in enumerate(clauses, 1):
+    for idx, clause in enumerate(clauses, start=1):
 
-        st.markdown(
-            f"""
-            <div style="border:1px solid #ddd;padding:12px;border-radius:6px;">
-            <b>Clause {idx}</b><br>
-            {clause}
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
+        st.markdown(f"### Clause {idx}")
+        st.write(clause)
 
-        # LLM analysis with safe try/except
-        try:
+        if is_ip_clause(clause):
+
+            st.warning("Intellectual Property Risk Detected")
+
             llm_result = analyze_clause_with_llm(clause, lang)
-        except Exception as e:
-            llm_result = {
-                "ownership": "unclear",
-                "exclusivity": "unclear",
-                "favor": "unclear",
-                "risk_reason": f"LLM error: {str(e)}",
-                "suggested_fix": "Manual legal review recommended."
-            }
 
-        # Safe defaults
-        ownership = llm_result.get("ownership", "Unknown")
-        exclusivity = llm_result.get("exclusivity", "Unknown")
-        risk_reason = llm_result.get("risk_reason", "Not specified")
-        suggested_fix = llm_result.get("suggested_fix", "No suggestion available")
+            risk_label, score = calculate_ip_risk(llm_result)
 
-        # English translation for PDF (Hindi-safe)
-        llm_result.setdefault(
-            "english_translation",
-            llm_result.get("translated_clause", clause)
-        )
+            col1, col2, col3 = st.columns(3)
+            col1.metric("Ownership", llm_result["ownership"])
+            col2.metric("Exclusivity", llm_result["exclusivity"])
+            col3.metric("Risk Level", risk_label)
 
-        risk, score = calculate_ip_risk(llm_result)
+            st.markdown("Reason / Explanation")
+            st.write(llm_result["risk_reason"])
 
-        # Risk indicator
-        if score >= 30:
-            st.warning("Intellectual Property risk detected")
+            st.markdown("Safer Alternative / Suggestion")
+            st.write(llm_result["suggested_fix"])
+
+            st.write(f"Risk Score: {score}/100")
+
+            results.append({
+                "clause": clause,
+                "analysis": llm_result,
+                "risk": risk_label,
+                "score": score
+            })
+
         else:
-            st.success("No significant Intellectual Property risk detected")
+            st.success("No IP-related risk found in this clause")
 
-        # Metrics
-        col1, col2, col3 = st.columns(3)
-        col1.metric("Ownership", ownership)
-        col2.metric("Exclusivity", exclusivity)
-        col3.metric("Risk Level", risk)
-
-        st.markdown("Reason for risk")
-        st.write(risk_reason)
-
-        st.markdown("Recommended alternative")
-        st.write(suggested_fix)
-
-        st.markdown(f"Risk score: {score}/100")
         st.markdown("---")
 
-        results.append({
-            "clause": clause,
-            "analysis": {
-                "ownership": ownership,
-                "exclusivity": exclusivity,
-                "risk_reason": risk_reason,
-                "suggested_fix": suggested_fix,
-                "english_translation": llm_result["english_translation"]
-            },
-            "risk": risk,
-            "score": score
-        })
-
-    # ------------------ AUTO AUDIT LOG ------------------
-    log_audit(results, language=lang)
-
-    # ------------------ EXPORT ------------------
+    # ---------------- AUDIT LOG ----------------
     if results:
-        st.subheader("Export")
+        log_audit(raw_text, results)
+        st.success("Audit log updated")
 
-        # Use correct helpers.py function
-        pdf_path, pdf_buffer = export_pdf(results)
-
-        st.success("PDF generated and audit log updated")
+    # ---------------- PDF EXPORT ----------------
+    if results:
+        pdf_bytes = export_pdf(results)
 
         st.download_button(
-            label="Download PDF report",
-            data=pdf_buffer,
+            label="Download PDF Report",
+            data=pdf_bytes,
             file_name="ip_risk_report.pdf",
             mime="application/pdf",
             use_container_width=True
         )
 
 else:
-    st.info("Enter contract text and click Analyze Contract to continue.")
+    st.info("Enter contract text and click Analyze Contract to continue")
