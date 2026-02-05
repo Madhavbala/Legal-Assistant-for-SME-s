@@ -1,76 +1,63 @@
 import os
 import json
 import re
+import streamlit as st
 from groq import Groq
-from dotenv import load_dotenv
-from utils.prompts import EN_PROMPT, HI_PROMPT  # <- important
+from utils.prompts import EN_PROMPT, HI_PROMPT
 
-# Load .env for GROQ API key
-load_dotenv()
 
-# Initialize Groq client
-client = Groq(api_key=os.getenv("GROQ_API_KEY"))
-
-def safe_json_parse(text):
+def get_groq_client():
     """
-    Safely parse JSON returned by LLM.
-    If parsing fails, return default structure to avoid crashing.
+    Safely get Groq client using Streamlit secrets or env vars
     """
-    try:
-        return json.loads(text)
-    except:
-        # Try extracting JSON using regex
-        match = re.search(r"\{.*\}", text, re.DOTALL)
-        if match:
-            try:
-                return json.loads(match.group())
-            except:
-                pass
+    api_key = None
 
-    # Fallback
-    return {
-        "ownership": "unclear",
-        "exclusivity": "unclear",
-        "favor": "unclear",
-        "risk_reason": "LLM response could not be parsed reliably.",
-        "suggested_fix": "Manual legal review recommended."
-    }
+    if "GROQ_API_KEY" in st.secrets:
+        api_key = st.secrets["GROQ_API_KEY"]
+    else:
+        api_key = os.getenv("GROQ_API_KEY")
 
-def analyze_clause_with_llm(clause, lang):
+    if not api_key:
+        raise RuntimeError("GROQ_API_KEY not found in Streamlit secrets")
+
+    return Groq(api_key=api_key)
+
+
+def analyze_clause_with_llm(clause: str, language: str):
     """
-    Analyze a single clause using Groq LLM.
-    lang: "English" or "Hindi"
-    Returns a dictionary with ownership, exclusivity, favor, risk_reason, suggested_fix
+    Analyze IP clause using Groq LLM
+    Returns clean dict (not raw JSON string)
     """
-    # Choose prompt based on language
-    prompt = HI_PROMPT if lang == "Hindi" else EN_PROMPT
+
+    if not clause.strip():
+        return None
+
+    prompt = EN_PROMPT if language == "English" else HI_PROMPT
     prompt = prompt.format(clause=clause)
 
     try:
+        client = get_groq_client()
+
         response = client.chat.completions.create(
-            model="openai/gpt-oss-120b",
-            messages=[
-                {
-                    "role": "system",
-                    "content": "You are a legal assistant. Respond ONLY with valid JSON. No explanations."
-                },
-                {
-                    "role": "user",
-                    "content": prompt
-                }
-            ],
-            temperature=0
+            model="llama-3.1-8b-instant",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.2,
         )
 
         raw_text = response.choices[0].message.content.strip()
-        return safe_json_parse(raw_text)
+
+        # Extract JSON safely
+        json_match = re.search(r"\{.*\}", raw_text, re.DOTALL)
+        if json_match:
+            return json.loads(json_match.group())
+        else:
+            return {
+                "RiskExplanation": raw_text,
+                "SaferAlternative": "No structured suggestion returned."
+            }
 
     except Exception as e:
-        # Return safe fallback if API fails
         return {
-            "ownership": "unclear",
-            "exclusivity": "unclear",
-            "favor": "unclear",
-            "risk_reason": f"LLM error: {str(e)}",
-            "suggested_fix": "Manual legal review recommended."
+            "RiskExplanation": f"Error in LLM analysis: {str(e)}",
+            "SaferAlternative": "LLM analysis failed."
         }
