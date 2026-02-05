@@ -1,85 +1,56 @@
-"""
-Clause Splitter
----------------
-Splits contract text into clean, readable legal clauses.
-Designed to work on Streamlit Cloud (no spaCy model downloads).
-"""
-
 import re
-import spacy
 
-
-def _get_nlp():
+def split_clauses(text: str, lang: str = "en"):
     """
-    Create a lightweight spaCy pipeline without external models.
-    Uses sentencizer for sentence boundary detection.
+    Split legal contract text into clauses.
+    Supports English and Hindi using rule-based logic.
+    Streamlit Cloud safe (no spaCy model loading).
     """
-    nlp = spacy.blank("en")
-    nlp.add_pipe("sentencizer")
-    return nlp
 
-
-nlp = _get_nlp()
-
-
-def _clean_text(text: str) -> str:
-    """
-    Clean noisy PDF / DOC extracted text.
-    - Removes bullet symbols
-    - Normalizes spaces
-    - Fixes broken lines
-    """
-    if not text:
-        return ""
-
-    # Remove common bullet / list symbols
-    text = re.sub(r"[•▪●◦►▪–—]", " ", text)
-
-    # Remove multiple dots caused by PDF extraction
-    text = re.sub(r"\.{2,}", ".", text)
-
-    # Merge broken lines inside sentences
-    text = re.sub(r"\n+", " ", text)
-
-    # Normalize spaces
-    text = re.sub(r"\s+", " ", text)
-
-    return text.strip()
-
-
-def split_clauses(text: str):
-    """
-    Split cleaned text into meaningful legal clauses.
-
-    Returns:
-        List[str] : list of clauses
-    """
-    cleaned_text = _clean_text(text)
-
-    if not cleaned_text:
+    if not text or not text.strip():
         return []
 
-    doc = nlp(cleaned_text)
+    # Normalize whitespace
+    text = re.sub(r"\s+", " ", text).strip()
 
     clauses = []
-    buffer = ""
 
-    for sent in doc.sents:
-        sentence = sent.text.strip()
+    if lang == "hi":
+        # Hindi legal markers
+        patterns = [
+            r"धारा\s+\d+",
+            r"अनुच्छेद\s+\d+",
+            r"\d+\.",
+            r"\(\d+\)"
+        ]
+    else:
+        # English legal markers
+        patterns = [
+            r"Section\s+\d+",
+            r"Clause\s+\d+",
+            r"Article\s+\d+",
+            r"\d+\.",
+            r"\(\d+\)"
+        ]
 
-        # Merge short fragments with previous sentence
-        if len(sentence) < 40:
-            buffer += " " + sentence
-            continue
+    combined_pattern = "(" + "|".join(patterns) + ")"
 
-        if buffer:
-            sentence = buffer.strip() + " " + sentence
-            buffer = ""
+    splits = re.split(combined_pattern, text)
 
-        clauses.append(sentence.strip())
+    current = ""
+    for part in splits:
+        if re.match(combined_pattern, part):
+            if current.strip():
+                clauses.append(current.strip())
+            current = part
+        else:
+            current += " " + part
 
-    # Add leftover buffer
-    if buffer.strip():
-        clauses.append(buffer.strip())
+    if current.strip():
+        clauses.append(current.strip())
+
+    # Fallback if splitting fails
+    if not clauses:
+        clauses = [p.strip() for p in text.split(".") if len(p.strip()) > 30]
 
     return clauses
