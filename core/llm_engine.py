@@ -1,63 +1,67 @@
+# core/llm_engine.py
+
 import os
 import json
-import re
-import streamlit as st
 from groq import Groq
-from utils.prompts import EN_PROMPT, HI_PROMPT
+
+# Initialize Groq client
+client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 
 
-def get_groq_client():
+def analyze_clause_with_llm(clause_text: str, lang: str) -> dict:
     """
-    Safely get Groq client using Streamlit secrets or env vars
-    """
-    api_key = None
-
-    if "GROQ_API_KEY" in st.secrets:
-        api_key = st.secrets["GROQ_API_KEY"]
-    else:
-        api_key = os.getenv("GROQ_API_KEY")
-
-    if not api_key:
-        raise RuntimeError("GROQ_API_KEY not found in Streamlit secrets")
-
-    return Groq(api_key=api_key)
-
-
-def analyze_clause_with_llm(clause: str, language: str):
-    """
-    Analyze IP clause using Groq LLM
-    Returns clean dict (not raw JSON string)
+    Sends a clause to LLM and returns structured risk analysis as dict.
+    Always returns a dict (never raw JSON string).
     """
 
-    if not clause.strip():
-        return None
+    prompt = f"""
+You are a legal risk analyst.
 
-    prompt = EN_PROMPT if language == "English" else HI_PROMPT
-    prompt = prompt.format(clause=clause)
+Analyze the following contract clause and return ONLY valid JSON
+with the following keys:
+
+ownership
+exclusivity
+favor
+risk_reason
+suggested_fix
+
+Clause:
+\"\"\"
+{clause_text}
+\"\"\"
+"""
 
     try:
-        client = get_groq_client()
-
         response = client.chat.completions.create(
-            model="llama-3.1-8b-instant",
-            messages=[{"role": "user", "content": prompt}],
+            model="llama-3.1-70b-versatile",
+            messages=[
+                {"role": "system", "content": "Return only valid JSON. No markdown."},
+                {"role": "user", "content": prompt},
+            ],
             temperature=0.2,
         )
 
-        raw_text = response.choices[0].message.content.strip()
+        raw = response.choices[0].message.content.strip()
 
-        # Extract JSON safely
-        json_match = re.search(r"\{.*\}", raw_text, re.DOTALL)
-        if json_match:
-            return json.loads(json_match.group())
-        else:
-            return {
-                "RiskExplanation": raw_text,
-                "SaferAlternative": "No structured suggestion returned."
-            }
+        # Parse JSON safely
+        data = json.loads(raw)
+
+        # Ensure required keys exist
+        return {
+            "ownership": data.get("ownership", "unknown"),
+            "exclusivity": data.get("exclusivity", "unknown"),
+            "favor": data.get("favor", "neutral"),
+            "risk_reason": data.get("risk_reason", "Not explained."),
+            "suggested_fix": data.get("suggested_fix", "No fix suggested."),
+        }
 
     except Exception as e:
+        # LLM failure fallback
         return {
-            "RiskExplanation": f"Error in LLM analysis: {str(e)}",
-            "SaferAlternative": "LLM analysis failed."
+            "ownership": "unknown",
+            "exclusivity": "unknown",
+            "favor": "unknown",
+            "risk_reason": f"LLM error: {str(e)}",
+            "suggested_fix": "Retry analysis or review clause manually.",
         }
