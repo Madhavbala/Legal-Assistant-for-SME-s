@@ -1,39 +1,51 @@
-def calculate_risk_score(analysis: dict) -> int:
+# core/llm_engine.py
+
+def analyze_clause_with_llm(clause_text: str, language: str = "en") -> dict:
     """
-    Returns a risk score between 0 and 100
+    Lightweight rule + placeholder LLM analysis.
+    Returns a fixed schema to avoid KeyError.
     """
 
-    score = 0
+    risk = "Low"
+    explanation = "No obvious legal risk detected."
 
-    # Ownership
-    if analysis.get("ownership", "").lower() in ["client", "assigned", "exclusive"]:
-        score += 30
-
-    # Exclusivity
-    if analysis.get("exclusivity", "").lower() == "exclusive":
-        score += 25
-
-    # Favor
-    if analysis.get("favor", "").lower() in ["one-sided", "client"]:
-        score += 25
-
-    # Explanation keywords
-    explanation = analysis.get("risk_reason", "").lower()
-
-    high_risk_words = [
-        "overly broad",
-        "no carve",
-        "no license",
-        "indefinite",
-        "exclusive",
-        "all rights",
-        "without limitation",
-        "forever"
+    risky_keywords = [
+        "indemnify",
+        "liability",
+        "termination",
+        "penalty",
+        "breach",
+        "damages",
+        "irrevocable",
+        "exclusive"
     ]
 
-    for word in high_risk_words:
-        if word in explanation:
-            score += 3
+    for word in risky_keywords:
+        if word.lower() in clause_text.lower():
+            risk = "High"
+            explanation = f"The clause contains the risky term '{word}'."
+            break
 
-    # Cap score
+    return {
+        "clause": clause_text,
+        "risk_level": risk,
+        "analysis": explanation
+    }
+
+
+def calculate_risk_score(results: list) -> int:
+    """
+    Simple numeric risk score (0–100)
+    """
+
+    if not results:
+        return 0
+
+    score = 0
+    for r in results:
+        if r["risk_level"] == "High":
+            score += 20
+        elif r["risk_level"] == "Medium":
+            score += 10
+
     return min(score, 100)
